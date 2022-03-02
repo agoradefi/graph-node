@@ -163,7 +163,8 @@ where
                             logger,
                             "Reverting block to get back to main chain";
                             "block_number" => format!("{}", subgraph_ptr.number),
-                            "block_hash" => format!("{}", subgraph_ptr.hash)
+                            "block_hash" => format!("{}", subgraph_ptr.hash),
+                            "parent_hash" => format!("{}", parent_ptr.hash)
                         );
 
                         if let Err(e) = self
@@ -467,7 +468,7 @@ where
 
         if triggers.len() == 1 {
             debug!(&logger, "1 candidate trigger in this block");
-        } else if triggers.len() > 1 {
+        } else {
             debug!(
                 &logger,
                 "{} candidate triggers in this block",
