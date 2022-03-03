@@ -3,14 +3,12 @@ use graph::blockchain::BlockchainKind;
 use graph::data::subgraph::UnifiedMappingApiVersion;
 use graph::env::env_var;
 use graph::firehose::{FirehoseEndpoints, ForkStep};
-use graph::prelude::{
-    EthereumBlock, EthereumCallCache, LightEthereumBlock, LightEthereumBlockExt, StopwatchMetrics,
-};
+use graph::prelude::{EthereumBlock, EthereumCallCache, LightEthereumBlock, LightEthereumBlockExt};
 use graph::slog::debug;
 use graph::{
     blockchain::{
         block_stream::{
-            BlockStreamEvent, BlockStreamMetrics, BlockWithTriggers, FirehoseError,
+            BlockStreamEvent, BlockWithTriggers, FirehoseError,
             FirehoseMapper as FirehoseMapperTrait, TriggersAdapter as TriggersAdapterTrait,
         },
         firehose_block_stream::FirehoseBlockStream,
@@ -148,7 +146,6 @@ impl Blockchain for Chain {
         loc: &DeploymentLocator,
         capabilities: &Self::NodeCapabilities,
         unified_api_version: UnifiedMappingApiVersion,
-        stopwatch_metrics: StopwatchMetrics,
     ) -> Result<Arc<Self::TriggersAdapter>, Error> {
         let logger = self
             .logger_factory
@@ -175,7 +172,6 @@ impl Blockchain for Chain {
             logger,
             ethrpc_metrics,
             eth_adapter,
-            stopwatch_metrics,
             chain_store: self.chain_store.cheap_clone(),
             unified_api_version,
         };
@@ -188,17 +184,11 @@ impl Blockchain for Chain {
         block_cursor: Option<String>,
         start_blocks: Vec<BlockNumber>,
         filter: Arc<Self::TriggerFilter>,
-        metrics: Arc<BlockStreamMetrics>,
         unified_api_version: UnifiedMappingApiVersion,
     ) -> Result<Box<dyn BlockStream<Self>>, Error> {
         let requirements = filter.node_capabilities();
         let adapter = self
-            .triggers_adapter(
-                &deployment,
-                &requirements,
-                unified_api_version.clone(),
-                metrics.stopwatch.clone(),
-            )
+            .triggers_adapter(&deployment, &requirements, unified_api_version)
             .expect(&format!(
                 "no adapter for network {} with capabilities {}",
                 self.name, requirements
@@ -233,17 +223,11 @@ impl Blockchain for Chain {
         start_blocks: Vec<BlockNumber>,
         subgraph_start_block: Option<BlockPtr>,
         filter: Arc<Self::TriggerFilter>,
-        metrics: Arc<BlockStreamMetrics>,
         unified_api_version: UnifiedMappingApiVersion,
     ) -> Result<Box<dyn BlockStream<Self>>, Error> {
         let requirements = filter.node_capabilities();
         let adapter = self
-            .triggers_adapter(
-                &deployment,
-                &requirements,
-                unified_api_version.clone(),
-                metrics.stopwatch.clone(),
-            )
+            .triggers_adapter(&deployment, &requirements, unified_api_version.clone())
             .expect(&format!(
                 "no adapter for network {} with capabilities {}",
                 self.name, requirements
@@ -278,7 +262,6 @@ impl Blockchain for Chain {
             start_blocks,
             reorg_threshold,
             logger,
-            metrics,
             *MAX_BLOCK_RANGE_SIZE,
             *TARGET_TRIGGERS_PER_BLOCK_RANGE,
             unified_api_version,
@@ -401,7 +384,6 @@ pub struct DummyDataSourceTemplate;
 pub struct TriggersAdapter {
     logger: Logger,
     ethrpc_metrics: Arc<SubgraphEthRpcMetrics>,
-    stopwatch_metrics: StopwatchMetrics,
     chain_store: Arc<dyn ChainStore>,
     eth_adapter: Arc<EthereumAdapter>,
     unified_api_version: UnifiedMappingApiVersion,
@@ -420,7 +402,6 @@ impl TriggersAdapterTrait<Chain> for TriggersAdapter {
             self.logger.clone(),
             self.chain_store.clone(),
             self.ethrpc_metrics.clone(),
-            self.stopwatch_metrics.clone(),
             from,
             to,
             filter,
@@ -452,7 +433,6 @@ impl TriggersAdapterTrait<Chain> for TriggersAdapter {
                     logger.clone(),
                     self.chain_store.clone(),
                     self.ethrpc_metrics.clone(),
-                    self.stopwatch_metrics.clone(),
                     block_number,
                     block_number,
                     filter,

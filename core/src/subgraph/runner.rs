@@ -6,7 +6,7 @@ use crate::subgraph::SubgraphInstance;
 use atomic_refcell::AtomicRefCell;
 use fail::fail_point;
 use graph::blockchain::block_stream::{
-    BlockStream, BlockStreamEvent, BlockStreamMetrics, BlockWithTriggers, BufferedBlockStream,
+    BlockStream, BlockStreamEvent, BlockWithTriggers, BufferedBlockStream,
 };
 use graph::blockchain::{Block, Blockchain, DataSource, TriggerFilter as _, TriggersAdapter};
 use graph::components::{
@@ -49,7 +49,6 @@ lazy_static! {
 async fn new_block_stream<C: Blockchain>(
     inputs: Arc<IndexingInputs<C>>,
     filter: C::TriggerFilter,
-    block_stream_metrics: Arc<BlockStreamMetrics>,
 ) -> Result<Box<dyn BlockStream<C>>, Error> {
     let chain = inputs.chain.cheap_clone();
     let is_firehose = chain.is_firehose_supported();
@@ -65,7 +64,6 @@ async fn new_block_stream<C: Blockchain>(
             inputs.store.block_cursor(),
             inputs.start_blocks.clone(),
             Arc::new(filter.clone()),
-            block_stream_metrics.clone(),
             inputs.unified_api_version.clone(),
         ),
         false => {
@@ -76,7 +74,6 @@ async fn new_block_stream<C: Blockchain>(
                 inputs.start_blocks.clone(),
                 current_ptr,
                 Arc::new(filter.clone()),
-                block_stream_metrics.clone(),
                 inputs.unified_api_version.clone(),
             )
         }
@@ -130,7 +127,7 @@ where
             let metrics = self.ctx.block_stream_metrics.clone();
             let filter = self.ctx.state.filter.clone();
             let stream_inputs = self.inputs.clone();
-            let mut block_stream = new_block_stream(stream_inputs, filter, metrics.cheap_clone())
+            let mut block_stream = new_block_stream(stream_inputs, filter)
                 .await?
                 .map_err(CancelableError::Error)
                 .cancelable(&block_stream_canceler, || Err(CancelableError::Cancel));
@@ -187,6 +184,7 @@ where
                             .block_stream_metrics
                             .reverted_blocks
                             .set(subgraph_ptr.number as f64);
+                        metrics.deployment_head.set(subgraph_ptr.number as f64);
 
                         // Revert the in-memory state:
                         // - Remove hosts for reverted dynamic data sources.
@@ -224,6 +222,7 @@ where
                 };
 
                 let block_ptr = block.ptr();
+                metrics.deployment_head.set(block_ptr.number as f64);
 
                 if block.trigger_count() > 0 {
                     subgraph_metrics

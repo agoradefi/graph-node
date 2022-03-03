@@ -12,10 +12,7 @@ mod types;
 // Try to reexport most of the necessary types
 use crate::{
     cheap_clone::CheapClone,
-    components::{
-        metrics::stopwatch::StopwatchMetrics,
-        store::{DeploymentLocator, StoredDynamicDataSource},
-    },
+    components::store::{DeploymentLocator, StoredDynamicDataSource},
     data::subgraph::UnifiedMappingApiVersion,
     prelude::DataSourceContext,
     runtime::{gas::GasCounter, AscHeap, AscPtr, DeterministicHostError, HostExportError},
@@ -46,7 +43,7 @@ use web3::types::H256;
 pub use block_stream::{ChainHeadUpdateListener, ChainHeadUpdateStream, TriggersAdapter};
 pub use types::{BlockHash, BlockPtr, ChainIdentifier};
 
-use self::block_stream::{BlockStream, BlockStreamMetrics};
+use self::block_stream::BlockStream;
 
 pub trait Block: Send + Sync {
     fn ptr(&self) -> BlockPtr;
@@ -105,7 +102,6 @@ pub trait Blockchain: Debug + Sized + Send + Sync + Unpin + 'static {
         loc: &DeploymentLocator,
         capabilities: &Self::NodeCapabilities,
         unified_api_version: UnifiedMappingApiVersion,
-        stopwatch_metrics: StopwatchMetrics,
     ) -> Result<Arc<Self::TriggersAdapter>, Error>;
 
     async fn new_firehose_block_stream(
@@ -114,7 +110,6 @@ pub trait Blockchain: Debug + Sized + Send + Sync + Unpin + 'static {
         block_cursor: Option<String>,
         start_blocks: Vec<BlockNumber>,
         filter: Arc<Self::TriggerFilter>,
-        metrics: Arc<BlockStreamMetrics>,
         unified_api_version: UnifiedMappingApiVersion,
     ) -> Result<Box<dyn BlockStream<Self>>, Error>;
 
@@ -124,7 +119,6 @@ pub trait Blockchain: Debug + Sized + Send + Sync + Unpin + 'static {
         start_blocks: Vec<BlockNumber>,
         subgraph_start_block: Option<BlockPtr>,
         filter: Arc<Self::TriggerFilter>,
-        metrics: Arc<BlockStreamMetrics>,
         unified_api_version: UnifiedMappingApiVersion,
     ) -> Result<Box<dyn BlockStream<Self>>, Error>;
 
